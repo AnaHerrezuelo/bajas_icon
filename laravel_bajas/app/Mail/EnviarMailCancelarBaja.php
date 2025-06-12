@@ -11,30 +11,20 @@ use Illuminate\Queue\SerializesModels;
 
 use Illuminate\Mail\Mailables\Address;
 
-
-class EnviarMail extends Mailable
+class EnviarMailCancelarBaja extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /*
-      Create a new message instance.
-     
-    public function __construct()
-    {
-        //
-    }
-    */
 
-    public array $datosEmail; // Añade esta propiedad para almacenar los datos
+    public array $datosEmailCancelar; // Añado esta propiedad para almacenar los datos
 
     /**
      * Create a new message instance.
      */
-    public function __construct(array $datosEmail) // Recibe los datos aquí
+    public function __construct(array $datosEmailCancelar) 
     {
-        $this->datosEmail = $datosEmail; // Almacena los datos en la propiedad
+        $this->datosEmailCancelar = $datosEmailCancelar; 
     }
-
 
     /**
      * Get the message envelope.
@@ -43,7 +33,7 @@ class EnviarMail extends Mailable
     {
         return new Envelope(
             from: new Address('analiangxin@gmail.com', 'Ana'),
-            subject: 'Nueva Baja Registrada',
+            subject: 'Se ha cancelado una baja',
         );
     }
 
@@ -53,8 +43,8 @@ class EnviarMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.mailBaja',
-            with: ['bajaNueva' => $this->datosEmail]
+            view: 'emails.mailBajaCancelar',
+            with: ['bajaCancelar' => $this->datosEmailCancelar]
         );
     }
 

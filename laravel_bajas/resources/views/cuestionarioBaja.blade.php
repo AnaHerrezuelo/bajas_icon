@@ -1,23 +1,18 @@
 
 @extends('layouts.bajasTemplate')
 
-@section('header')
-<header>
-    <nav><h1>navegador</h1></nav>
-</header>
-@endsection
 
 @section('content')
 <div id="content">
     <a href="/index" type="button" class="bt1"> Volver </a>
     <h1> Nueva Baja</h1>
+    @if($errors->any())
         <div id="errors">
-            @if($errors->any())
-                @foreach($errors->all() as $error)
-                    <p>  {{ $error }} </p>
-                @endforeach
-            @endif
+            @foreach($errors->all() as $error)
+                <p>  {{ $error }} </p>
+            @endforeach
         </div>
+    @endif
     <form action="/insertarBaja" method="POST" class="form">
         @csrf
         <label for="fecha_inicio"> Fecha de Inicio </label>

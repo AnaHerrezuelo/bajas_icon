@@ -11,9 +11,10 @@ use App\Models\notificaciones;
 use Illuminate\Support\Carbon;
 
 use Illuminate\Support\Facades\Mail;
-use App\Mail\EnviarMail;
+use App\Mail\EnviarMailNuevaBaja;
+use App\Mail\EnviarMailCancelarBaja;
 
-class bajasController extends Controller
+class bajasWebController extends Controller
 {
     public function index() {
         $fechaActual = Carbon::today();
@@ -25,15 +26,17 @@ class bajasController extends Controller
         $datosBajasTodas = bajas::orderBy('fecha_inicio', 'asc')->get();
 
         //Saca solo las bajas activas
-        bajas::where('fecha_fin', '<', $fechaActual)->update(['estado' => 0]);
+        bajas::where('fecha_fin', '<', $fechaActual)->where('cancelada', true)->update(['estado' => 0]);
+
         $datosBajasActivas = bajas::where('estado', 1)->orderBy('fecha_inicio', 'asc')->get();
 
-        return view('index', compact('datosBajasActivas', 'datosTrabajadores', 'datosBajasTodas')); //hay que poner el nombre de la vista a la que lo queremos mandar
+        return view('index', compact('datosBajasActivas', 'datosTrabajadores', 'datosBajasTodas', 'fechaActual')); //hay que poner el nombre de la vista a la que lo queremos mandar
     }
 
     public function baja($id_baja) {
+        $fechaActual = Carbon::today();
         $bajaEsp = bajas::with('bajas_fk1')->findOrFail($id_baja);//with muestra solo los datos del id_baja
-        return view('baja', compact('bajaEsp'), ['id_baja' => $id_baja]); //aquí paso el id_baja par poder usar la info
+        return view('baja', compact('bajaEsp', 'fechaActual'), ['id_baja' => $id_baja]); //aquí paso el id_baja par poder usar la info
     }
 
     public function cuestionarioBaja (){
@@ -54,8 +57,14 @@ class bajasController extends Controller
             $trabajador = $idtrabajadorObjeto->id_trabajador; 
         }
 
-/**/ 
-//esto tengo que mirarlo desde la base de datos
+        $trabajadorEnBaja = bajas::where('trabajador',$trabajador )->where('estado', true)->exists();;
+        if($trabajadorEnBaja) {
+            return back()->withErrors(['trabajador' => 'este trabajador ya está en una baja, no puede tener otra'])->withInput();
+        }
+
+
+        /**/ 
+        //esto tengo que mirarlo desde la base de datos
         $bajaduplicada = bajas::where('fecha_inicio', $request->fecha_inicio)
                 ->where('fecha_fin', $request->fecha_fin)
                 ->where('motivo', $request->motivo)
@@ -98,7 +107,9 @@ class bajasController extends Controller
                 'duracion' => $duracion,
                 'motivo' => $validarData['motivo'],
                 'comentario' => $validarData['comentario'],
-                'trabajador' => $trabajador
+                'trabajador' => $trabajador,
+                'estado' => 1,
+                'cancelada' => false    
             ]);
 
             $notiNueva = notificaciones::create([
@@ -116,7 +127,7 @@ class bajasController extends Controller
             ];
 
             try{
-                Mail::to('analiangxin.herrezuelo.ab@gmail.com')->send(new EnviarMail($datosEmail));
+                Mail::to('analiangxin.herrezuelo.ab@gmail.com')->send(new EnviarMailNuevaBaja($datosEmail));
             }catch (\Exception $emailException) {
                 // Log del error pero continuar con el redirect
                 \Log::error('Error al enviar email: '.$emailException->getMessage());
@@ -127,12 +138,44 @@ class bajasController extends Controller
             //return redirect('/index')->with('success', 'Baja correcta y notificación enviada') ;
 
         }catch(\Illuminate\Validation\ValidationException $e){
-                return back()->withError('algo ha fallado')
-                ->withErrors($e->validator)
-                ->withInput();
+                return back()->withError('algo ha fallado')->withErrors($e->validator)->withInput();
         } catch (\Exception $e) {
             return back()->withInput()->with('error', 'Error general'.$e->getMessage());
         }
     }// end insertar baja
+
+
+
+    
+    public function cancelarBaja($id_baja){
+        $bajaEsp = bajas::with('bajas_fk1')->findOrFail($id_baja);
+        $bajaEsp->update(['estado' => 0, 'cancelada' => true  ]);
+        //dd($bajaEsp);
+
+        $datosEmailCancelar = [
+            'fecha_inicio' => $bajaEsp->fecha_inicio,
+            'fecha_fin' => $bajaEsp->fecha_fin,
+            'motivo' => $bajaEsp->motivo,
+            'dni' => $bajaEsp->bajas_fk1->dni,
+            'nombre' => $bajaEsp->bajas_fk1->nombre,
+            'apellido1' => $bajaEsp->bajas_fk1->apellido1,
+            'apellido2' => $bajaEsp->bajas_fk1->apellido2,
+        ];
+        
+
+        //  dd($datosEmailCancelar);
+
+
+            try{
+                Mail::to('analiangxin.herrezuelo.ab@gmail.com')->send(new EnviarMailCancelarBaja($datosEmailCancelar));
+            }catch (\Exception $emailException) {
+                // Log del error pero continuar con el redirect
+                \Log::error('Error al enviar email: '.$emailException->getMessage());
+            }
+
+
+        return redirect('/index');
+        //return('cancelo bajaa');
+    }
 
 }
